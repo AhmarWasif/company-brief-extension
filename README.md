@@ -122,6 +122,6 @@ Now click the extension on any company's website and watch the agent research.
 - [x] Multi-step autonomous research, visible reasoning
 - [x] Minimum-viable permissions
 - [x] Markdown rendering in popup with copy-to-clipboard
-- [ ] Save briefs to a local archive across sessions
+- [x] Save briefs to a local archive across sessions
 - [ ] One-click "draft outreach message" using the brief as context
 - [ ] Export brief as Markdown or PDF
