@@ -200,6 +200,31 @@ async function removeBriefForUrl(url) {
   await chrome.storage.local.set({ [BRIEF_HISTORY_KEY]: updated });
 }
 
+function createMetadataHeader(title, url) {
+  const header = document.createElement("div");
+  header.style.marginBottom = "14px";
+  header.style.paddingBottom = "14px";
+  header.style.borderBottom = "1px solid #e2e6ec";
+
+  const titleEl = document.createElement("h3");
+  titleEl.textContent = title || "(No title)";
+  titleEl.style.fontSize = "15px";
+  titleEl.style.fontWeight = "600";
+  titleEl.style.color = "#1a1a2e";
+  titleEl.style.lineHeight = "1.35";
+  titleEl.style.marginBottom = "4px";
+
+  const urlEl = document.createElement("p");
+  urlEl.textContent = url || "";
+  urlEl.style.fontSize = "12px";
+  urlEl.style.color = "#8b919a";
+  urlEl.style.wordBreak = "break-all";
+  urlEl.style.lineHeight = "1.4";
+
+  header.append(titleEl, urlEl);
+  return header;
+}
+
 function createCopyButton() {
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
@@ -222,7 +247,10 @@ function createCopyButton() {
   return copyBtn;
 }
 
-function renderBrief(markdown, { fromCache = false, pageUrl = null } = {}) {
+function renderBrief(
+  markdown,
+  { fromCache = false, pageUrl = null, title = "", url = "" } = {}
+) {
   stopLoadingTimer();
   const cleaned = stripBriefPreamble(markdown);
   lastBriefMarkdown = cleaned;
@@ -252,6 +280,8 @@ function renderBrief(markdown, { fromCache = false, pageUrl = null } = {}) {
     note.append(regenerateBtn);
     children.push(note);
   }
+
+  children.push(createMetadataHeader(title, url));
 
   const briefBody = document.createElement("div");
   briefBody.className = "brief-body";
@@ -389,7 +419,7 @@ async function runGeneration() {
     const brief = await fetchBrief(pageData);
     const cleaned = stripBriefPreamble(brief);
     await saveBriefToHistory(pageData.url, pageData.title, cleaned);
-    renderBrief(cleaned);
+    renderBrief(cleaned, { title: pageData.title, url: pageData.url });
   } catch (err) {
     if (err.message === "NETWORK") {
       setResponseMessage(
@@ -417,7 +447,12 @@ async function restoreCachedBriefIfAny() {
     const history = await getBriefHistory();
     const cached = history.find((item) => item.url === tab.url);
     if (cached) {
-      renderBrief(cached.brief, { fromCache: true, pageUrl: tab.url });
+      renderBrief(cached.brief, {
+        fromCache: true,
+        pageUrl: tab.url,
+        title: cached.title,
+        url: cached.url,
+      });
     }
   } catch {
     // Keep default placeholder on failure
