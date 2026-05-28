@@ -186,9 +186,15 @@ async function getBriefHistory() {
   return result[BRIEF_HISTORY_KEY] || [];
 }
 
-async function saveBriefToHistory(url, title, brief) {
+async function saveBriefToHistory(url, title, brief, companyName) {
   const history = await getBriefHistory();
-  const entry = { url, title, brief, timestamp: Date.now() };
+  const entry = {
+    url,
+    title,
+    brief,
+    company_name: companyName ?? null,
+    timestamp: Date.now(),
+  };
   const withoutUrl = history.filter((item) => item.url !== url);
   const updated = [entry, ...withoutUrl].slice(0, MAX_HISTORY_ENTRIES);
   await chrome.storage.local.set({ [BRIEF_HISTORY_KEY]: updated });
@@ -200,14 +206,21 @@ async function removeBriefForUrl(url) {
   await chrome.storage.local.set({ [BRIEF_HISTORY_KEY]: updated });
 }
 
-function createMetadataHeader(title, url) {
+function getMetadataHeading(companyName, pageTitle) {
+  const name =
+    (companyName && String(companyName).trim()) ||
+    (pageTitle && String(pageTitle).trim());
+  return name || "(No title)";
+}
+
+function createMetadataHeader(heading, url) {
   const header = document.createElement("div");
   header.style.marginBottom = "14px";
   header.style.paddingBottom = "14px";
   header.style.borderBottom = "1px solid #e2e6ec";
 
   const titleEl = document.createElement("h3");
-  titleEl.textContent = title || "(No title)";
+  titleEl.textContent = heading;
   titleEl.style.fontSize = "15px";
   titleEl.style.fontWeight = "600";
   titleEl.style.color = "#1a1a2e";
@@ -249,7 +262,13 @@ function createCopyButton() {
 
 function renderBrief(
   markdown,
-  { fromCache = false, pageUrl = null, title = "", url = "" } = {}
+  {
+    fromCache = false,
+    pageUrl = null,
+    companyName = null,
+    title = "",
+    url = "",
+  } = {}
 ) {
   stopLoadingTimer();
   const cleaned = stripBriefPreamble(markdown);
@@ -281,7 +300,9 @@ function renderBrief(
     children.push(note);
   }
 
-  children.push(createMetadataHeader(title, url));
+  children.push(
+    createMetadataHeader(getMetadataHeading(companyName, title), url)
+  );
 
   const briefBody = document.createElement("div");
   briefBody.className = "brief-body";
@@ -380,7 +401,7 @@ async function fetchBrief(pageData) {
     throw new Error("Invalid response from brief service.");
   }
 
-  return data.brief;
+  return { brief: data.brief, company_name: data.company_name ?? null };
 }
 
 async function runGeneration() {
@@ -416,10 +437,19 @@ async function runGeneration() {
     }
 
     showStagedLoading();
-    const brief = await fetchBrief(pageData);
+    const { brief, company_name } = await fetchBrief(pageData);
     const cleaned = stripBriefPreamble(brief);
-    await saveBriefToHistory(pageData.url, pageData.title, cleaned);
-    renderBrief(cleaned, { title: pageData.title, url: pageData.url });
+    await saveBriefToHistory(
+      pageData.url,
+      pageData.title,
+      cleaned,
+      company_name
+    );
+    renderBrief(cleaned, {
+      companyName: company_name,
+      title: pageData.title,
+      url: pageData.url,
+    });
   } catch (err) {
     if (err.message === "NETWORK") {
       setResponseMessage(
@@ -450,6 +480,7 @@ async function restoreCachedBriefIfAny() {
       renderBrief(cached.brief, {
         fromCache: true,
         pageUrl: tab.url,
+        companyName: cached.company_name,
         title: cached.title,
         url: cached.url,
       });
