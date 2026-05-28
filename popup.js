@@ -20,6 +20,9 @@ const LOADING_STAGES = [
   { at: 40000, text: "Almost there — final synthesis..." },
 ];
 
+const BRIEF_HISTORY_KEY = "brief_history";
+const MAX_HISTORY_ENTRIES = 20;
+
 let loadingIntervalId = null;
 let lastBriefMarkdown = "";
 
@@ -178,18 +181,26 @@ function renderMarkdown(markdown) {
   return parts.join("");
 }
 
-function renderBrief(markdown) {
-  stopLoadingTimer();
-  const cleaned = stripBriefPreamble(markdown);
-  lastBriefMarkdown = cleaned;
+async function getBriefHistory() {
+  const result = await chrome.storage.local.get(BRIEF_HISTORY_KEY);
+  return result[BRIEF_HISTORY_KEY] || [];
+}
 
-  responseEl.className = "brief-content";
-  responseEl.replaceChildren();
+async function saveBriefToHistory(url, title, brief) {
+  const history = await getBriefHistory();
+  const entry = { url, title, brief, timestamp: Date.now() };
+  const withoutUrl = history.filter((item) => item.url !== url);
+  const updated = [entry, ...withoutUrl].slice(0, MAX_HISTORY_ENTRIES);
+  await chrome.storage.local.set({ [BRIEF_HISTORY_KEY]: updated });
+}
 
-  const briefBody = document.createElement("div");
-  briefBody.className = "brief-body";
-  briefBody.innerHTML = renderMarkdown(cleaned);
+async function removeBriefForUrl(url) {
+  const history = await getBriefHistory();
+  const updated = history.filter((item) => item.url !== url);
+  await chrome.storage.local.set({ [BRIEF_HISTORY_KEY]: updated });
+}
 
+function createCopyButton() {
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
   copyBtn.className = "copy-btn";
@@ -208,8 +219,46 @@ function renderBrief(markdown) {
       }, 2000);
     }
   });
+  return copyBtn;
+}
 
-  responseEl.append(briefBody, copyBtn);
+function renderBrief(markdown, { fromCache = false, pageUrl = null } = {}) {
+  stopLoadingTimer();
+  const cleaned = stripBriefPreamble(markdown);
+  lastBriefMarkdown = cleaned;
+
+  responseEl.className = "brief-content";
+  responseEl.replaceChildren();
+
+  const children = [];
+
+  if (fromCache && pageUrl) {
+    const note = document.createElement("p");
+    note.style.fontSize = "12px";
+    note.style.color = "#5c6370";
+    note.style.marginBottom = "12px";
+    note.style.lineHeight = "1.45";
+    note.append("Showing the brief generated earlier for this page ");
+
+    const regenerateBtn = document.createElement("button");
+    regenerateBtn.type = "button";
+    regenerateBtn.textContent = "Regenerate";
+    regenerateBtn.style.cssText =
+      "background:none;border:none;padding:0;color:#2c4a6e;cursor:pointer;font:inherit;font-size:12px;font-weight:500;text-decoration:underline;width:auto;";
+    regenerateBtn.addEventListener("click", async () => {
+      await removeBriefForUrl(pageUrl);
+      runGeneration();
+    });
+    note.append(regenerateBtn);
+    children.push(note);
+  }
+
+  const briefBody = document.createElement("div");
+  briefBody.className = "brief-body";
+  briefBody.innerHTML = renderMarkdown(cleaned);
+  children.push(briefBody, createCopyButton());
+
+  responseEl.append(...children);
 }
 
 function extractPageContent() {
@@ -304,7 +353,7 @@ async function fetchBrief(pageData) {
   return data.brief;
 }
 
-generateBtn.addEventListener("click", async () => {
+async function runGeneration() {
   setResponseMessage("Reading page...");
   generateBtn.disabled = true;
 
@@ -338,7 +387,9 @@ generateBtn.addEventListener("click", async () => {
 
     showStagedLoading();
     const brief = await fetchBrief(pageData);
-    renderBrief(brief);
+    const cleaned = stripBriefPreamble(brief);
+    await saveBriefToHistory(pageData.url, pageData.title, cleaned);
+    renderBrief(cleaned);
   } catch (err) {
     if (err.message === "NETWORK") {
       setResponseMessage(
@@ -352,4 +403,26 @@ generateBtn.addEventListener("click", async () => {
     stopLoadingTimer();
     generateBtn.disabled = false;
   }
-});
+}
+
+async function restoreCachedBriefIfAny() {
+  try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+
+    if (!tab?.url || isRestrictedUrl(tab.url)) return;
+
+    const history = await getBriefHistory();
+    const cached = history.find((item) => item.url === tab.url);
+    if (cached) {
+      renderBrief(cached.brief, { fromCache: true, pageUrl: tab.url });
+    }
+  } catch {
+    // Keep default placeholder on failure
+  }
+}
+
+generateBtn.addEventListener("click", runGeneration);
+restoreCachedBriefIfAny();

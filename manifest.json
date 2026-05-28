@@ -3,7 +3,7 @@
   "name": "Company Brief",
   "version": "0.1.0",
   "description": "Get an AI-generated brief of any company you're researching.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Brief this company"
