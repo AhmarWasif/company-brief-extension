@@ -31,6 +31,15 @@ function isRestrictedUrl(url) {
   return RESTRICTED_PREFIXES.some((prefix) => url.startsWith(prefix));
 }
 
+function cleanUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.origin + parsed.pathname;
+  } catch {
+    return rawUrl;
+  }
+}
+
 function setResponseMessage(text, className = "status-message") {
   stopLoadingTimer();
   responseEl.className = className;
@@ -228,7 +237,7 @@ function createMetadataHeader(heading, url) {
   titleEl.style.marginBottom = "4px";
 
   const urlEl = document.createElement("p");
-  urlEl.textContent = url || "";
+  urlEl.textContent = cleanUrl(url || "");
   urlEl.style.fontSize = "12px";
   urlEl.style.color = "#8b919a";
   urlEl.style.wordBreak = "break-all";
@@ -439,8 +448,9 @@ async function runGeneration() {
     showStagedLoading();
     const { brief, company_name } = await fetchBrief(pageData);
     const cleaned = stripBriefPreamble(brief);
+    const pageUrl = cleanUrl(pageData.url);
     await saveBriefToHistory(
-      pageData.url,
+      pageUrl,
       pageData.title,
       cleaned,
       company_name
@@ -448,7 +458,7 @@ async function runGeneration() {
     renderBrief(cleaned, {
       companyName: company_name,
       title: pageData.title,
-      url: pageData.url,
+      url: pageUrl,
     });
   } catch (err) {
     if (err.message === "NETWORK") {
@@ -474,12 +484,13 @@ async function restoreCachedBriefIfAny() {
 
     if (!tab?.url || isRestrictedUrl(tab.url)) return;
 
+    const pageUrl = cleanUrl(tab.url);
     const history = await getBriefHistory();
-    const cached = history.find((item) => item.url === tab.url);
+    const cached = history.find((item) => cleanUrl(item.url) === pageUrl);
     if (cached) {
       renderBrief(cached.brief, {
         fromCache: true,
-        pageUrl: tab.url,
+        pageUrl: cached.url,
         companyName: cached.company_name,
         title: cached.title,
         url: cached.url,
