@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Company Brief</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 440px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #1a1a2e;
+      background: #f8f9fb;
+    }
+
+    .container {
+      padding: 24px;
+    }
+
+    header {
+      margin-bottom: 24px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a1a2e;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+
+    header p {
+      font-size: 13px;
+      color: #5c6370;
+      line-height: 1.45;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px 20px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      background: #2c4a6e;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    button:hover {
+      background: #243d5c;
+    }
+
+    button:active {
+      background: #1e334d;
+    }
+
+    #response {
+      margin-top: 20px;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid #e2e6ec;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #4a5568;
+      line-height: 1.55;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+
+    #response.status-message {
+      color: #5c6370;
+    }
+
+    #response.error-message {
+      color: #8b3a3a;
+    }
+
+    .loading-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #5c6370;
+    }
+
+    .loading-text {
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .spinner {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #e2e6ec;
+      border-top-color: #2c4a6e;
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .brief-body {
+      line-height: 1.6;
+      color: #374151;
+    }
+
+    .brief-body h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #2c4a6e;
+      margin: 18px 0 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .brief-body h2:first-child {
+      margin-top: 0;
+    }
+
+    .brief-body p {
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .brief-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .brief-body ul {
+      margin: 0 0 14px;
+      padding-left: 22px;
+      list-style-type: disc;
+    }
+
+    .brief-body li {
+      margin-bottom: 6px;
+      font-size: 13px;
+      padding-left: 4px;
+    }
+
+    .brief-body li:last-child {
+      margin-bottom: 0;
+    }
+
+    .brief-body strong {
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+
+    .copy-btn {
+      width: auto;
+      margin-top: 16px;
+      padding: 8px 14px;
+      font-size: 12px;
+      background: #fff;
+      color: #2c4a6e;
+      border: 1px solid #c5cdd8;
+    }
+
+    .copy-btn:hover {
+      background: #f0f4f8;
+    }
+
+    .copy-btn:active {
+      background: #e8edf2;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Company Brief</h1>
+      <p>AI-powered company research for the page you're viewing.</p>
+    </header>
+
+    <button type="button" id="generate-btn">Generate brief</button>
+
+    <div id="response">
+      Click the button above to generate a brief of the current page.
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

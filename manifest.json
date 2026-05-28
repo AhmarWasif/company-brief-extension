@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Company Brief",
+  "version": "0.1.0",
+  "description": "Get an AI-generated brief of any company you're researching.",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Brief this company"
+  }
+}
