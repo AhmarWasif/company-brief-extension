@@ -3,6 +3,15 @@ const BACKEND_URL = "https://company-brief-backend.vercel.app";
 
 const responseEl = document.getElementById("response");
 const generateBtn = document.getElementById("generate-btn");
+const historyBtn = document.getElementById("history-btn");
+const historyOverlay = document.getElementById("history-overlay");
+const historyBackdrop = document.getElementById("history-backdrop");
+const historyCloseBtn = document.getElementById("history-close");
+const historyListEl = document.getElementById("history-list");
+const historyClearAllBtn = document.getElementById("history-clear-all");
+
+const DEFAULT_RESPONSE_TEXT =
+  "Click the button above to generate a brief of the current page.";
 
 const RESTRICTED_PREFIXES = [
   "chrome:",
@@ -25,6 +34,7 @@ const MAX_HISTORY_ENTRIES = 20;
 
 let loadingIntervalId = null;
 let lastBriefMarkdown = "";
+let currentlyDisplayedUrl = null;
 
 function isRestrictedUrl(url) {
   if (!url) return true;
@@ -42,8 +52,16 @@ function cleanUrl(rawUrl) {
 
 function setResponseMessage(text, className = "status-message") {
   stopLoadingTimer();
+  currentlyDisplayedUrl = null;
   responseEl.className = className;
   responseEl.textContent = text;
+}
+
+function setDefaultResponse() {
+  stopLoadingTimer();
+  currentlyDisplayedUrl = null;
+  responseEl.className = "";
+  responseEl.textContent = DEFAULT_RESPONSE_TEXT;
 }
 
 function getLoadingMessage(elapsedMs) {
@@ -213,6 +231,123 @@ async function removeBriefForUrl(url) {
   const history = await getBriefHistory();
   const updated = history.filter((item) => item.url !== url);
   await chrome.storage.local.set({ [BRIEF_HISTORY_KEY]: updated });
+  return updated;
+}
+
+async function clearAllHistory() {
+  await chrome.storage.local.set({ [BRIEF_HISTORY_KEY]: [] });
+}
+
+function formatRelativeTime(timestamp) {
+  const diffMs = Date.now() - timestamp;
+  const minutes = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMs / 3600000);
+  const days = Math.floor(diffMs / 86400000);
+
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (hours < 48) return "yesterday";
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function truncateUrlForList(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    if (segments.length === 0) return parsed.host;
+    return `${parsed.host}/${segments[0]}`;
+  } catch {
+    return rawUrl.length > 40 ? rawUrl.slice(0, 40) + "..." : rawUrl;
+  }
+}
+
+async function updateHistoryButton() {
+  const history = await getBriefHistory();
+  if (history.length === 0) {
+    historyBtn.hidden = true;
+    return;
+  }
+  historyBtn.hidden = false;
+  historyBtn.textContent = `History (${history.length})`;
+}
+
+function closeHistoryDropdown() {
+  historyOverlay.hidden = true;
+  document.removeEventListener("keydown", onHistoryEscape);
+}
+
+function onHistoryEscape(event) {
+  if (event.key === "Escape") closeHistoryDropdown();
+}
+
+async function renderHistoryList() {
+  const history = await getBriefHistory();
+  historyListEl.replaceChildren();
+
+  if (history.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "history-empty";
+    empty.textContent = "No saved briefs yet.";
+    historyListEl.append(empty);
+    return;
+  }
+
+  for (const entry of history) {
+    const item = document.createElement("div");
+    item.className = "history-item";
+    item.addEventListener("click", () => {
+      closeHistoryDropdown();
+      renderBrief(entry.brief, {
+        fromHistoryList: true,
+        historyTimeLabel: formatRelativeTime(entry.timestamp),
+        companyName: entry.company_name,
+        title: entry.title,
+        url: entry.url,
+      });
+    });
+
+    const main = document.createElement("div");
+    main.className = "history-item-main";
+
+    const name = document.createElement("div");
+    name.className = "history-item-name";
+    name.textContent = getMetadataHeading(entry.company_name, entry.title);
+
+    const url = document.createElement("div");
+    url.className = "history-item-url";
+    url.textContent = truncateUrlForList(entry.url);
+
+    const time = document.createElement("div");
+    time.className = "history-item-time";
+    time.textContent = formatRelativeTime(entry.timestamp);
+
+    main.append(name, url, time);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "history-item-delete";
+    deleteBtn.setAttribute("aria-label", "Delete brief");
+    deleteBtn.textContent = "✕";
+    deleteBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await removeBriefForUrl(entry.url);
+      if (cleanUrl(entry.url) === currentlyDisplayedUrl) {
+        setDefaultResponse();
+      }
+      await renderHistoryList();
+      await updateHistoryButton();
+    });
+
+    item.append(main, deleteBtn);
+    historyListEl.append(item);
+  }
+}
+
+async function openHistoryDropdown() {
+  await renderHistoryList();
+  historyOverlay.hidden = false;
+  document.addEventListener("keydown", onHistoryEscape);
 }
 
 function getMetadataHeading(companyName, pageTitle) {
@@ -273,6 +408,8 @@ function renderBrief(
   markdown,
   {
     fromCache = false,
+    fromHistoryList = false,
+    historyTimeLabel = "",
     pageUrl = null,
     companyName = null,
     title = "",
@@ -282,13 +419,22 @@ function renderBrief(
   stopLoadingTimer();
   const cleaned = stripBriefPreamble(markdown);
   lastBriefMarkdown = cleaned;
+  currentlyDisplayedUrl = url ? cleanUrl(url) : null;
 
   responseEl.className = "brief-content";
   responseEl.replaceChildren();
 
   const children = [];
 
-  if (fromCache && pageUrl) {
+  if (fromHistoryList && historyTimeLabel) {
+    const note = document.createElement("p");
+    note.style.fontSize = "12px";
+    note.style.color = "#5c6370";
+    note.style.marginBottom = "12px";
+    note.style.lineHeight = "1.45";
+    note.textContent = `Viewing a saved brief from ${historyTimeLabel}. Click Generate to brief the current page instead.`;
+    children.push(note);
+  } else if (fromCache && pageUrl) {
     const note = document.createElement("p");
     note.style.fontSize = "12px";
     note.style.color = "#5c6370";
@@ -460,6 +606,7 @@ async function runGeneration() {
       title: pageData.title,
       url: pageUrl,
     });
+    await updateHistoryButton();
   } catch (err) {
     if (err.message === "NETWORK") {
       setResponseMessage(
@@ -502,4 +649,16 @@ async function restoreCachedBriefIfAny() {
 }
 
 generateBtn.addEventListener("click", runGeneration);
+
+historyBtn.addEventListener("click", openHistoryDropdown);
+historyBackdrop.addEventListener("click", closeHistoryDropdown);
+historyCloseBtn.addEventListener("click", closeHistoryDropdown);
+historyClearAllBtn.addEventListener("click", async () => {
+  await clearAllHistory();
+  setDefaultResponse();
+  closeHistoryDropdown();
+  await updateHistoryButton();
+});
+
+updateHistoryButton();
 restoreCachedBriefIfAny();

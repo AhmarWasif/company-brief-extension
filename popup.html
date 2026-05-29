@@ -22,10 +22,21 @@
 
     .container {
       padding: 24px;
+      position: relative;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 24px;
     }
 
     header {
-      margin-bottom: 24px;
+      margin-bottom: 0;
+      flex: 1;
+      min-width: 0;
     }
 
     header h1 {
@@ -177,14 +188,196 @@
     .copy-btn:active {
       background: #e8edf2;
     }
+
+    .history-btn {
+      width: auto;
+      flex-shrink: 0;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #2c4a6e;
+      background: #fff;
+      border: 1px solid #c5cdd8;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .history-btn:hover {
+      background: #f0f4f8;
+    }
+
+    .history-btn:active {
+      background: #e8edf2;
+    }
+
+    .history-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+    }
+
+    .history-overlay[hidden] {
+      display: none;
+    }
+
+    .history-backdrop {
+      position: absolute;
+      inset: 0;
+    }
+
+    .history-panel {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      width: 320px;
+      max-height: calc(100% - 48px);
+      background: #fff;
+      border: 1px solid #e2e6ec;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(26, 26, 46, 0.12);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .history-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid #e2e6ec;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+
+    .history-close {
+      width: auto;
+      padding: 2px 6px;
+      font-size: 14px;
+      line-height: 1;
+      color: #5c6370;
+      background: none;
+      border: none;
+      border-radius: 4px;
+    }
+
+    .history-close:hover {
+      background: #f0f4f8;
+      color: #1a1a2e;
+    }
+
+    .history-list {
+      overflow-y: auto;
+      max-height: 340px;
+    }
+
+    .history-empty {
+      padding: 20px 14px;
+      font-size: 13px;
+      color: #8b919a;
+      text-align: center;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #f0f2f5;
+      cursor: pointer;
+      transition: background 0.12s ease;
+    }
+
+    .history-item:hover {
+      background: #f8f9fb;
+    }
+
+    .history-item-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-item-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a2e;
+      line-height: 1.35;
+      margin-bottom: 2px;
+    }
+
+    .history-item-url {
+      font-size: 12px;
+      color: #8b919a;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-item-time {
+      font-size: 11px;
+      color: #5c6370;
+      margin-top: 3px;
+    }
+
+    .history-item-delete {
+      width: auto;
+      flex-shrink: 0;
+      padding: 2px 6px;
+      font-size: 13px;
+      line-height: 1;
+      color: #8b919a;
+      background: none;
+      border: none;
+      border-radius: 4px;
+    }
+
+    .history-item-delete:hover {
+      background: #fdecec;
+      color: #8b3a3a;
+    }
+
+    .history-clear-all {
+      width: 100%;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #5c6370;
+      background: #fff;
+      border: none;
+      border-top: 1px solid #e2e6ec;
+      border-radius: 0;
+      text-align: center;
+    }
+
+    .history-clear-all:hover {
+      background: #f8f9fb;
+      color: #2c4a6e;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>Company Brief</h1>
-      <p>AI-powered company research for the page you're viewing.</p>
-    </header>
+    <div class="header-row">
+      <header>
+        <h1>Company Brief</h1>
+        <p>AI-powered company research for the page you're viewing.</p>
+      </header>
+      <button type="button" id="history-btn" class="history-btn" hidden>History (0)</button>
+    </div>
+
+    <div id="history-overlay" class="history-overlay" hidden>
+      <div class="history-backdrop" id="history-backdrop"></div>
+      <div class="history-panel">
+        <div class="history-panel-header">
+          <span>Saved briefs</span>
+          <button type="button" id="history-close" class="history-close" aria-label="Close history">✕</button>
+        </div>
+        <div id="history-list" class="history-list"></div>
+        <button type="button" id="history-clear-all" class="history-clear-all">Clear all</button>
+      </div>
+    </div>
 
     <button type="button" id="generate-btn">Generate brief</button>
 
