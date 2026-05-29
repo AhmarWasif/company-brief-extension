@@ -8,6 +8,10 @@ I built this to research the companies I was applying to. The recursion is the
 point: this is the tool that helped me prepare for the interviews where I'd
 talk about building it.
 
+<p align="center">
+  <img src="screenshot.png" alt="Company Brief showing a generated brief for Anthropic" width="480">
+</p>
+
 ## What's actually happening
 
 Most "AI-powered" Chrome extensions wrap a single LLM call in a popup. This one
@@ -26,6 +30,9 @@ When you click "Generate brief":
 5. After several rounds of research, Claude synthesizes everything into a brief
    with five sections: what they do, funding signal, market thesis, likely
    operating pains, and smart questions to ask in an interview.
+6. The brief is automatically saved to a local history. Click the History button
+   in the popup to revisit past briefs without re-running the agent — useful
+   when researching multiple companies in parallel.
 
 The agent decides *its own* research plan based on what the page contains. A
 funding-heavy company homepage might trigger only one web search; a thin landing
@@ -45,15 +52,16 @@ Sends url, title, body, links     Web tools enabled                    • web_f
                                                                        agentic loop
                                   Returns Markdown brief       ◀──     Synthesized
 Renders structured brief    ◀──                                        output
+Saves to chrome.storage.local
 ```
 
 Key design decisions worth calling out:
 
 - **Minimum-viable permissions.** The manifest only requests `activeTab` and
-  `scripting`. The extension can read only the page you explicitly invoke it on,
-  and only at that moment. No `<all_urls>`, no browsing history, no background
-  activity. Most extensions over-request permissions; this one is scoped to
-  exactly what it needs.
+  `scripting` (and `storage` for the local history). The extension can read
+  only the page you explicitly invoke it on, and only at that moment. No
+  `<all_urls>`, no browsing history, no background activity. Most extensions
+  over-request permissions; this one is scoped to exactly what it needs.
 - **API key never reaches the client.** The `ANTHROPIC_API_KEY` lives as a
   Vercel environment variable on the backend. The extension knows nothing about
   it. Same pattern as the rest of my projects.
@@ -65,6 +73,15 @@ Key design decisions worth calling out:
   "Loading…" indicator. The popup cycles through stage messages ("Reading the
   website…" → "Researching funding and news…" → "Synthesizing…") so the
   perceived experience matches what's actually happening behind the scenes.
+- **Persistence without a backend database.** Briefs are stored locally in
+  `chrome.storage.local` — no user account, no server-side data, no cloud
+  storage. Your research history stays on your machine. The cost: simpler,
+  more private, and zero backend infrastructure for state management.
+- **Layered company-name extraction.** The brief's metadata header shows a
+  clean company name (e.g. "Anthropic") rather than the raw page title (e.g.
+  "Home | Anthropic"). The primary path asks the model to emit a structured
+  `COMPANY:` line; if that fails, a deterministic fallback call extracts it.
+  Belt-and-suspenders for an LLM output that needs to be reliable.
 
 ## Try it yourself
 
@@ -101,6 +118,11 @@ Now click the extension on any company's website and watch the agent research.
   during the 20–40 second wait is the difference between "is this broken?" and
   "I can see it working." Same principle as a thoughtful loading state on a
   data dashboard, but more important when the wait is real.
+- **LLM output reliability needs defense in depth.** A single prompt asking
+  the model to follow a format isn't enough for production-grade UI. The
+  company-name extraction has both a primary path (structured prefix in the
+  output) and a deterministic fallback (a second small call). That layering
+  is what turns a fragile demo into something that doesn't break for users.
 - **Build the tool that solves your own problem.** I built this for my own job
   search. The specificity made the requirements obvious; the authenticity made
   it easy to keep iterating.
@@ -123,5 +145,6 @@ Now click the extension on any company's website and watch the agent research.
 - [x] Minimum-viable permissions
 - [x] Markdown rendering in popup with copy-to-clipboard
 - [x] Save briefs to a local archive across sessions
+- [x] Browse and restore past briefs from the popup
 - [ ] One-click "draft outreach message" using the brief as context
 - [ ] Export brief as Markdown or PDF
